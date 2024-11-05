@@ -19,7 +19,7 @@ This project uses an ATMega328P microcontroller (with the Arduino Framework) to 
 - x2 push buttons (BTN1 - start/stop the round, 
                    BTN2 - selecting the difficulty)
 - x3 220Ω resistors
-- x2 1K resistors (for buttons)
+- x2 5K1 resistors (for buttons)
 - Breadboard
 - Jumper wires
 
