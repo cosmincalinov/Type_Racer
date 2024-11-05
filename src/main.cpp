@@ -7,17 +7,19 @@ const int ledPinBlue = 11;
 const int buttonStartStop = 2;
 const int buttonDifficulty = 3;
 
-// Enum for the state of the game, dificulty and color of the RGBLed
+// Enum for the state of the game, difficulty, and color of the RGB LED
 enum GameState { IDLE, COUNTDOWN, RUNNING, FINISHED };
 enum Difficulty { EASY, MEDIUM, HARD };
+enum Colors { RED, GREEN, WHITE, OFF };
 
 // Initial state of the game
 GameState gameState = IDLE;
 Difficulty difficulty = EASY;
 
-// Time and variables for the reverse countdown
+// Time and variables for the countdown and round
 unsigned long countdownStartTime = 0;
 unsigned long lastCountdownUpdateTime = 0;
+unsigned long lastBlinkTime = 0;  // Time tracker for LED blink during countdown
 int countdownSecondsLeft = 3;
 
 unsigned long roundStartTime = 0;
@@ -28,7 +30,7 @@ int wordsCorrect = 0;
 const char* words[] = {"robo", "cosmin", "adi", "raluca", "buton", "lab", "curs"};
 const int numWords = 7;
 
-// Dificulty settings
+// Difficulty settings
 unsigned long difficultyTimes[] = {3000, 2000, 1000}; // Easy, Medium, Hard
 
 // Debouncing
@@ -36,63 +38,62 @@ unsigned long lastDebounceTimeStartStop = 0;
 unsigned long lastDebounceTimeDifficulty = 0;
 const unsigned long debounceDelay = 50;  // 50 ms for debouncing
 
-// button state flags
+// Button state flags
 volatile bool startStopFlag = false;
 volatile bool difficultyFlag = false;
 
-// sets the color of the RGBLed
-void setLEDColor(int col) {
+// Sets the color of the RGB LED
+void setLEDColor(Colors col) {
     switch (col) {
-      case (1): {
-        // red
+      case RED:
         digitalWrite(ledPinRed, HIGH);
         digitalWrite(ledPinGreen, LOW);
         digitalWrite(ledPinBlue, LOW);
         break;
-      }
-      case (2): {
-        // green
+      case GREEN:
         digitalWrite(ledPinRed, LOW);
         digitalWrite(ledPinGreen, HIGH);
         digitalWrite(ledPinBlue, LOW);
         break;
-      }
-      case (3): {
-        // white
+      case WHITE:
         digitalWrite(ledPinRed, HIGH);
         digitalWrite(ledPinGreen, HIGH);
         digitalWrite(ledPinBlue, HIGH);
         break;
-      }
-      default: {
-        // off
+      default:
         digitalWrite(ledPinRed, LOW);
         digitalWrite(ledPinGreen, LOW);
         digitalWrite(ledPinBlue, LOW);
         break;
-      }
     }
 }
 
-// initiate countdown
+// Initiate countdown
 void startCountdown() {
     countdownStartTime = millis();
     lastCountdownUpdateTime = millis();
+    lastBlinkTime = millis();  // Initialize blink time for countdown
     countdownSecondsLeft = 3;
     gameState = COUNTDOWN;
     Serial.println("Countdown starting...");
 }
-// updates countdown
+
+// Update countdown with LED blink
 void updateCountdown() {
     if (gameState == COUNTDOWN) {
         unsigned long currentMillis = millis();
         
-        // if one second has passed since the last update
+        // Blink LED every 500 ms (on and off each second)
+        if (currentMillis - lastBlinkTime >= 500) {
+            lastBlinkTime = currentMillis;
+            setLEDColor(countdownSecondsLeft % 2 == 0 ? WHITE : OFF); // Alternate between WHITE and OFF 
+        }
+
+        // Update countdown every second
         if (currentMillis - lastCountdownUpdateTime >= 1000) {
             lastCountdownUpdateTime = currentMillis;
+            
             Serial.println(countdownSecondsLeft);
-            setLEDColor(3); // white LED
-
             countdownSecondsLeft--;
 
             // Start round if countdown has stopped
@@ -100,80 +101,80 @@ void updateCountdown() {
                 gameState = RUNNING;
                 roundStartTime = millis();
                 wordDisplayTime = millis();
-                setLEDColor(2); // green LED
+                setLEDColor(GREEN); // green LED for round start
                 Serial.println("Go!");
             }
         }
     }
 }
 
-// change difficulty setting
+// Change difficulty setting
 void cycleDifficulty() {
     difficulty = (Difficulty)((difficulty + 1) % 3);
     const char* difficultyText[] = {"Easy mode on!", "Medium mode on!", "Hard mode on!"};
     Serial.println(difficultyText[difficulty]);
 }
 
-// initiate a round
+// Play round
 void playRound() {
     if (millis() - roundStartTime >= 30000) { // 30 seconds for a round
         gameState = FINISHED;
     } else {
         const char* word = words[random(0, numWords)];
         
-        // changes the speed of showing a new word if the difficulty is different
+        // Change word display interval based on difficulty
         if (millis() - wordDisplayTime >= difficultyTimes[difficulty]) {
             wordDisplayTime = millis();
             Serial.print("Type the word: ");
             Serial.println(word);
         }
         
-        // if word is correct
+        // Check if word is correct
         if (Serial.available() > 0) {
             String input = Serial.readStringUntil('\n');
             if (input.equals(word)) {
                 wordsCorrect++;
-                setLEDColor(2); // green LED
+                setLEDColor(GREEN); // green LED for correct answer
                 wordDisplayTime = millis();
             } else {
-                setLEDColor(1); // red LED
+                setLEDColor(RED); // red LED for incorrect answer
             }
         }
     }
 }
 
-// end the round and show the final score
+// End the round and show the score
 void endRound() {
     Serial.print("Round over! Words typed correctly: ");
     Serial.println(wordsCorrect);
-    setLEDColor(3); // white LED
+    setLEDColor(WHITE); // white LED for idle mode
     gameState = IDLE;
 }
 
 // ISR for Start/Stop button
 void onStartStopPress() {
-    startStopFlag = true;  // flag that indicates the button being pressed
+    startStopFlag = true;  // Flag that indicates the button was pressed
 }
 
-// ISR for difficulty
+// ISR for Difficulty button
 void onDifficultyPress() {
-    difficultyFlag = true;  // flag that indicates the button being pressed
+    difficultyFlag = true;  // Flag that indicates the button was pressed
 }
 
 void setup() {
     Serial.begin(9600);
 
-    // RGB Led setup
+    // RGB LED setup
     pinMode(ledPinRed, OUTPUT);
     pinMode(ledPinGreen, OUTPUT);
     pinMode(ledPinBlue, OUTPUT);
-    setLEDColor(3); // white LED
+    setLEDColor(WHITE); // White LED for idle mode
 
-    // button setup
+    // Button setup
     pinMode(buttonStartStop, INPUT_PULLUP);
     pinMode(buttonDifficulty, INPUT_PULLUP);
 
-    // interrupts to buttons
+    // Attach interrupts to buttons
     attachInterrupt(digitalPinToInterrupt(buttonStartStop), onStartStopPress, FALLING);
     attachInterrupt(digitalPinToInterrupt(buttonDifficulty), onDifficultyPress, FALLING);
 }
@@ -181,10 +182,10 @@ void setup() {
 void loop() {
     unsigned long currentMillis = millis();
 
-    // Debouncing for butonul Start/Stop
+    // Debouncing for Start/Stop button
     if (startStopFlag && (currentMillis - lastDebounceTimeStartStop > debounceDelay)) {
-        lastDebounceTimeStartStop = currentMillis;  // reset debounce time
-        startStopFlag = false;  // reset flag
+        lastDebounceTimeStartStop = currentMillis;  // Reset debounce time
+        startStopFlag = false;  // Reset flag
         
         if (gameState == IDLE) {
             startCountdown();
@@ -193,29 +194,29 @@ void loop() {
         }
     }
 
-    // Debouncing for difficulty button
+    // Debouncing for Difficulty button
     if (difficultyFlag && (currentMillis - lastDebounceTimeDifficulty > debounceDelay)) {
-        lastDebounceTimeDifficulty = currentMillis;  // reset debounce time
-        difficultyFlag = false;  // reset flag
+        lastDebounceTimeDifficulty = currentMillis;  // Reset debounce time
+        difficultyFlag = false;  // Reset flag
         
         if (gameState == IDLE) {
             cycleDifficulty();
         }
     }
 
-    // handle the state of the game
+    // Handle game state
     switch (gameState) {
         case IDLE:
-            setLEDColor(3); // white LED
+            setLEDColor(WHITE); // White LED for idle mode
             break;
         case COUNTDOWN:
-            updateCountdown(); // update reverse countdown
+            updateCountdown(); // Update countdown with LED blink
             break;
         case RUNNING:
-            playRound(); // plays the round
+            playRound(); // Play round
             break;
         case FINISHED:
-            endRound(); // end the round and reset the game
+            endRound(); // End round and reset game
             break;
     }
 }
