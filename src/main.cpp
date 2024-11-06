@@ -27,6 +27,7 @@ unsigned long wordDisplayTime = 0;
 int wordsCorrect = 0;
 
 // Words
+const char* currentWord = "";  // Inițializare ca string gol, accesibilă global
 const char* words[] = {"robo", "cosmin", "adi", "raluca", "buton", "lab", "curs"};
 const int numWords = 7;
 
@@ -86,7 +87,12 @@ void updateCountdown() {
         // Blink LED every 500 ms (on and off each second)
         if (currentMillis - lastBlinkTime >= 500) {
             lastBlinkTime = currentMillis;
-            setLEDColor(countdownSecondsLeft % 2 == 0 ? WHITE : OFF); // Alternate between WHITE and OFF 
+
+            if (countdownSecondsLeft % 2 == 0) {
+                setLEDColor(OFF);
+            } else {
+                setLEDColor(WHITE);
+            }
         }
 
         // Update countdown every second
@@ -117,27 +123,31 @@ void cycleDifficulty() {
 
 // Play round
 void playRound() {
-    if (millis() - roundStartTime >= 30000) { // 30 seconds for a round
+    // if a round lasted more than 30 seconds
+    if (millis() - roundStartTime >= 30000) {
         gameState = FINISHED;
     } else {
-        const char* word = words[random(0, numWords)];
-        
-        // Change word display interval based on difficulty
+        // generate a certain word for a time related to its difficulty
         if (millis() - wordDisplayTime >= difficultyTimes[difficulty]) {
             wordDisplayTime = millis();
+            currentWord = words[random(0, numWords)];
             Serial.print("Type the word: ");
-            Serial.println(word);
+            Serial.println(currentWord);
         }
-        
-        // Check if word is correct
+
+        // see if the serial input is available
         if (Serial.available() > 0) {
+            // read input on a new line and trim the resulting string
             String input = Serial.readStringUntil('\n');
-            if (input.equals(word)) {
+            input.trim();
+
+            // if input is correct
+            if (input.equals(currentWord)) {
                 wordsCorrect++;
-                setLEDColor(GREEN); // green LED for correct answer
-                wordDisplayTime = millis();
+                setLEDColor(GREEN); // green LED
+                wordDisplayTime = millis();  // reset timer for the next word
             } else {
-                setLEDColor(RED); // red LED for incorrect answer
+                setLEDColor(RED); // red LED
             }
         }
     }
