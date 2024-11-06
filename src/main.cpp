@@ -6,6 +6,9 @@ const int ledPinGreen = 10;
 const int ledPinBlue = 11;
 const int buttonStartStop = 2;
 const int buttonDifficulty = 3;
+const char backspaceChar = 8; 
+
+bool begin = 1;
 
 // Enum for the state of the game, difficulty, and color of the RGB LED
 enum GameState { IDLE, COUNTDOWN, RUNNING, FINISHED };
@@ -27,12 +30,13 @@ unsigned long wordDisplayTime = 0;
 int wordsCorrect = 0;
 
 // Words
+String userInput = ""; // current input of the user
 const char* currentWord = "";  // Inițializare ca string gol, accesibilă global
 const char* words[] = {"robo", "cosmin", "adi", "raluca", "buton", "lab", "curs"};
 const int numWords = 7;
 
 // Difficulty settings
-unsigned long difficultyTimes[] = {3000, 2000, 1000}; // Easy, Medium, Hard
+unsigned long difficultyTimes[] = {7000, 5000, 3000}; // Easy, Medium, Hard
 
 // Debouncing
 unsigned long lastDebounceTimeStartStop = 0;
@@ -109,7 +113,6 @@ void updateCountdown() {
     }
 }
 
-
 // Change difficulty setting
 void cycleDifficulty() {
     difficulty = (Difficulty)((difficulty + 1) % 3);
@@ -119,35 +122,56 @@ void cycleDifficulty() {
 
 // Play round
 void playRound() {
-    // if a round lasted more than 30 seconds
+    // verify if a round lasted more than 30 seconds
     if (millis() - roundStartTime >= 30000) {
-        gameState = FINISHED;
+        gameState = FINISHED;bool begin = 1;
     } else {
-        // generate a certain word for a time related to its difficulty
-        if (millis() - wordDisplayTime >= difficultyTimes[difficulty]) {
+        // generate a random word and set its difficulty time
+        if (begin || millis() - wordDisplayTime >= difficultyTimes[difficulty]) {
             wordDisplayTime = millis();
             currentWord = words[random(0, numWords)];
-            Serial.print("Type the word: ");
+            Serial.println("Type the word: ");
             Serial.println(currentWord);
+
+            // reset the input for the user
+            userInput = "";
+
+            begin = 0;  
         }
 
-        // see if the serial input is available
-        if (Serial.available() > 0) {
-            // read input on a new line and trim the resulting string
-            String input = Serial.readStringUntil('\n');
-            input.trim();
+        // if there is an available input
+        while (Serial.available() > 0) {
+            char incomingChar = Serial.read();  // read a char
 
-            // if input is correct
-            if (input.equals(currentWord)) {
-                wordsCorrect++;
-                setLEDColor(GREEN); // green LED
-                wordDisplayTime = millis();  // reset timer for the next word
+            if (incomingChar == backspaceChar) {
+                // to find backspace - delete the last char
+                if (userInput.length() > 0) {
+                    userInput.remove(userInput.length() - 1);
+                    Serial.print("\b \b");  // delete the char from serial monitor
+                }
+            } else if (incomingChar == '\n' || incomingChar == '\r') {
+                // ignore enter and new line
+                continue;
             } else {
-                setLEDColor(RED); // red LED
+                // add char in user input
+                userInput += incomingChar;
+                Serial.print(incomingChar);  // display char in serial monitor
+            }
+
+            // verify of the user input is correct
+            if (userInput.equals(currentWord)) {
+                wordsCorrect++;
+                setLEDColor(GREEN);  // green LED
+                wordDisplayTime = millis();  // reset time for the next word
+                break;  // go to the new word
+            } else if (!String(currentWord).startsWith(userInput)) {
+                // conversion to string
+                setLEDColor(RED);  // red LED
             }
         }
     }
 }
+
 
 // End the round and show the score
 void endRound() {
