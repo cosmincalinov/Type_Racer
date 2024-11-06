@@ -30,7 +30,7 @@ This project uses an ATMega328P microcontroller (with the Arduino Framework) to 
 - buttonDifficulty (PIN 3)
 
 ### Project schematic
-![Circuit](./aux/schema1.png)
+![Circuit](./schema.png)
 ## Live circuit
 ![circ1](./poza_circ.jpeg)
 ## Code Overview
