@@ -8,6 +8,10 @@ const int buttonStartStop = 2;
 const int buttonDifficulty = 3;
 const char backspaceChar = 8; 
 
+// for debouncing
+unsigned int interruptTime;
+unsigned int lastInterruptTime = 0;
+
 bool begin = 1;
 
 // Enum for the state of the game, difficulty, and color of the RGB LED
@@ -32,8 +36,8 @@ int wordsCorrect = 0;
 // Words
 String userInput = ""; // current input of the user
 const char* currentWord = "";  // Inițializare ca string gol, accesibilă global
-const char* words[] = {"robo", "cosmin", "adi", "raluca", "buton", "lab", "curs"};
-const int numWords = 7;
+const char* words[] = {"robo", "cosmin", "adi", "raluca", "buton", "lab", "curs", "hi", "hey", "you", "they"};
+const int numWords = 11;
 
 // Difficulty settings
 unsigned long difficultyTimes[] = {7000, 5000, 3000}; // Easy, Medium, Hard
@@ -81,6 +85,7 @@ void startCountdown() {
     countdownSecondsLeft = 3;
     gameState = COUNTDOWN;
     Serial.println("Countdown starting...");
+    begin = 1;
 }
 
 // Update countdown with LED blink
@@ -124,7 +129,7 @@ void cycleDifficulty() {
 void playRound() {
     // verify if a round lasted more than 30 seconds
     if (millis() - roundStartTime >= 30000) {
-        gameState = FINISHED;bool begin = 1;
+        gameState = FINISHED;
     } else {
         // generate a random word and set its difficulty time
         if (begin || millis() - wordDisplayTime >= difficultyTimes[difficulty]) {
@@ -155,19 +160,19 @@ void playRound() {
             } else {
                 // add char in user input
                 userInput += incomingChar;
-                Serial.print(incomingChar);  // display char in serial monitor
+                // Serial.print(incomingChar);  // display char in serial monitor
             }
 
             // verify of the user input is correct
             if (userInput.equals(currentWord)) {
                 wordsCorrect++;
                 setLEDColor(GREEN);  // green LED
-                wordDisplayTime = millis();  // reset time for the next word
+                wordDisplayTime = 0;  // reset time for the next word
                 break;  // go to the new word
             } else if (!String(currentWord).startsWith(userInput)) {
                 // conversion to string
                 setLEDColor(RED);  // red LED
-            }
+            } else setLEDColor(GREEN);
         }
     }
 }
@@ -177,17 +182,22 @@ void playRound() {
 void endRound() {
     Serial.print("Round over! Words typed correctly: ");
     Serial.println(wordsCorrect);
+    wordsCorrect = 0;
     setLEDColor(WHITE); // white LED for idle mode
     gameState = IDLE;
 }
 
 // ISR for Start/Stop button
 void onStartStopPress() {
+  interruptTime = millis();
+  if(interruptTime - lastInterruptTime > debounceDelay)
     startStopFlag = true;  // Flag that indicates the button was pressed
 }
 
 // ISR for Difficulty button
 void onDifficultyPress() {
+  interruptTime = millis();
+  if(interruptTime - lastInterruptTime > debounceDelay)
     difficultyFlag = true;  // Flag that indicates the button was pressed
 }
 
@@ -201,8 +211,8 @@ void setup() {
     setLEDColor(WHITE); // White LED for idle mode
 
     // Button setup
-    pinMode(buttonStartStop, INPUT_PULLUP);
-    pinMode(buttonDifficulty, INPUT_PULLUP);
+    pinMode(buttonStartStop, INPUT);
+    pinMode(buttonDifficulty, INPUT);
 
     // Attach interrupts to buttons
     attachInterrupt(digitalPinToInterrupt(buttonStartStop), onStartStopPress, FALLING);
@@ -210,11 +220,8 @@ void setup() {
 }
 
 void loop() {
-    unsigned long currentMillis = millis();
-
     // Debouncing for Start/Stop button
-    if (startStopFlag && (currentMillis - lastDebounceTimeStartStop > debounceDelay)) {
-        lastDebounceTimeStartStop = currentMillis;  // Reset debounce time
+    if (startStopFlag) {
         startStopFlag = false;  // Reset flag
         
         if (gameState == IDLE) {
@@ -225,8 +232,7 @@ void loop() {
     }
 
     // Debouncing for Difficulty button
-    if (difficultyFlag && (currentMillis - lastDebounceTimeDifficulty > debounceDelay)) {
-        lastDebounceTimeDifficulty = currentMillis;  // Reset debounce time
+    if (difficultyFlag) {
         difficultyFlag = false;  // Reset flag
         
         if (gameState == IDLE) {
