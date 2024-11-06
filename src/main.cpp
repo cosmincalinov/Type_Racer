@@ -83,36 +83,32 @@ void startCountdown() {
 void updateCountdown() {
     if (gameState == COUNTDOWN) {
         unsigned long currentMillis = millis();
-        
-        // Blink LED every 500 ms (on and off each second)
-        if (currentMillis - lastBlinkTime >= 500) {
-            lastBlinkTime = currentMillis;
 
-            if (countdownSecondsLeft % 2 == 0) {
-                setLEDColor(OFF);
-            } else {
-                setLEDColor(WHITE);
-            }
-        }
-
-        // Update countdown every second
-        if (currentMillis - lastCountdownUpdateTime >= 1000) {
+        // if we are at the start of a second
+        if (countdownSecondsLeft > 0 && (currentMillis - lastCountdownUpdateTime >= 1000)) {
             lastCountdownUpdateTime = currentMillis;
-            
-            Serial.println(countdownSecondsLeft);
             countdownSecondsLeft--;
 
-            // Start round if countdown has stopped
-            if (countdownSecondsLeft <= 0) {
-                gameState = RUNNING;
-                roundStartTime = millis();
-                wordDisplayTime = millis();
-                setLEDColor(GREEN); // green LED for round start
-                Serial.println("Go!");
-            }
+            Serial.println(countdownSecondsLeft + 1);  // print the current number
+            setLEDColor(WHITE);  // white LED
+        }
+
+        //  Stop LED after 500 ms
+        if (currentMillis - lastCountdownUpdateTime >= 500 && countdownSecondsLeft > 0) {
+            setLEDColor(OFF);  // LED off
+        }
+
+        // Start round after countdown reaches 0
+        if (countdownSecondsLeft <= 0) {
+            gameState = RUNNING;
+            roundStartTime = millis();
+            wordDisplayTime = millis();
+            setLEDColor(GREEN);  // green LED
+            Serial.println("Go!");
         }
     }
 }
+
 
 // Change difficulty setting
 void cycleDifficulty() {
